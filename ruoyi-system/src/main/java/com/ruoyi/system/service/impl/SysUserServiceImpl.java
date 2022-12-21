@@ -81,9 +81,9 @@ public class SysUserServiceImpl implements ISysUserService
     public List<SysUser> selectUserList(SysUser user)
     {
 
-        if(redisCache.hasKey("userList")){
+        if(redisCache.hasKey("userList")) {
             return redisCache.getCacheObject("userList");
-        }else {
+        } else {
             List<SysUser> list =  userMapper.selectUserList(user);
             redisCache.setCacheObject("userList", userMapper.selectUserList(user));
             return list;
@@ -278,6 +278,7 @@ public class SysUserServiceImpl implements ISysUserService
         insertUserPost(user);
         // 新增用户与角色管理
         insertUserRole(user);
+        redisCache.setCacheObject("user"+user.getUserId(),user);
         redisCache.setCacheObject("userList",userMapper.selectUserList(new SysUser()));
         return rows;
     }
@@ -305,8 +306,6 @@ public class SysUserServiceImpl implements ISysUserService
     public int updateUser(SysUser user)
     {
         Long userId = user.getUserId();
-        redisCache.setCacheObject("user"+userId,user);
-        redisCache.setCacheObject("userList",userMapper.selectUserList(new SysUser()));
 
         // 删除用户与角色关联
         userRoleMapper.deleteUserRoleByUserId(userId);
@@ -316,7 +315,11 @@ public class SysUserServiceImpl implements ISysUserService
         userPostMapper.deleteUserPostByUserId(userId);
         // 新增用户与岗位管理
         insertUserPost(user);
-        return userMapper.updateUser(user);
+        int result = userMapper.updateUser(user);
+
+        redisCache.setCacheObject("user"+userId,user);
+        redisCache.setCacheObject("userList",userMapper.selectUserList(new SysUser()));
+        return result;
     }
 
     /**
@@ -467,7 +470,7 @@ public class SysUserServiceImpl implements ISysUserService
         }
 
         userRoleMapper.deleteUserRoleByUserId(userId);
-        // 删除用户与岗位表
+
         userPostMapper.deleteUserPostByUserId(userId);
 
         int res = userMapper.deleteUserById(userId);
@@ -496,6 +499,11 @@ public class SysUserServiceImpl implements ISysUserService
         // 删除用户与岗位关联
         userPostMapper.deleteUserPost(userIds);
         int res = userMapper.deleteUserByIds(userIds);
+        for (Long userId : userIds) {
+            if(redisCache.hasKey("user"+userId)){
+                redisCache.deleteObject("user"+userId);
+            }
+        }
         redisCache.setCacheObject("userList",userMapper.selectUserList(new SysUser()));
         return res;
 
